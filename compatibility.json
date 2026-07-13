@@ -1,0 +1,24 @@
+{
+  "project": "alohamini-gui",
+  "supported_platforms": ["ubuntu-linux"],
+  "supported_python": ["3.12", "3.13"],
+  "supported_lerobot_alohamini_commits": [
+    "67a757e4",
+    "45c81812"
+  ],
+  "required_pc_capabilities": [
+    "camera_env_override_preserves_upstream_default",
+    "record_loop_optional_callbacks"
+  ],
+  "required_pi_capabilities": [
+    "camera_env_override_preserves_upstream_default"
+  ],
+  "notes": [
+    "The original lerobot_alohamini checkout remains the source of robot code.",
+    "CLI installation leaves the original source tree unchanged by default.",
+    "GUI recording uses the companion entry and leaves upstream examples/alohamini/record_bi.py unchanged.",
+    "The released runtime targets the LeRobot 0.6 AlohaMini API family; legacy camera configs remain migratable.",
+    "This companion provides GUI, setup scripts, compatibility checks, and minimal GUI-required adapters.",
+    "Existing upstream debug scripts are not duplicated; doctor.sh detects and reports whether they exist."
+  ]
+}

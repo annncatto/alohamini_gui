@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$BIN_DIR/../ssh_common.sh"
+
+if [[ -n "$PI_HOST" && -S "$SSH_CONTROL_PATH" ]] && \
+  "$REAL_SSH" -S "$SSH_CONTROL_PATH" -O check "$SSH_TARGET" >/dev/null 2>&1; then
+  exec "$REAL_SSH" -S "$SSH_CONTROL_PATH" -o ControlMaster=no "$@"
+fi
+
+exec "$REAL_SSH" "$@"

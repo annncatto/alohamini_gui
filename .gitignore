@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+*.log
+*.bak.*
+alohamini_ops/config.env
+alohamini_ops/record_control.txt
+alohamini_ops/record_motion.json
+alohamini_ops/record_phase_markers.jsonl
+alohamini_ops/record_preview/
+datasets/
