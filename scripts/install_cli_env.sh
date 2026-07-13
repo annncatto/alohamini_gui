@@ -47,7 +47,8 @@ while [ "$#" -gt 0 ]; do
 done
 
 [ -n "$REPO" ] || die "--repo is required"
-[ -n "$PI" ] || die "--pi is required, for example pi5@192.168.0.24"
+[ -n "$PI" ] || die "--pi is required, for example pi5@192.168.x.x"
+validate_pi_target "$PI" || die "--pi must be USER@HOST with the robot's real IP or hostname"
 ensure_repo "$REPO"
 if [ -z "$PI_REPO" ]; then
   PI_REPO="$(default_pi_repo "$(parse_pi_user "$PI")")"

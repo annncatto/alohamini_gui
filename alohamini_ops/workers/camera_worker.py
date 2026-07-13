@@ -1,5 +1,6 @@
 import time
 
+from app.network import require_alohamini_host
 from qt_compat import QObject, QImage, Signal, Slot
 
 
@@ -22,6 +23,8 @@ class CameraWorker(QObject):
     @Slot()
     def run(self) -> None:
         try:
+            self.log.emit("INFO", f"正在检查树莓派 Host: {self.config['pi_host']}:5555,5556")
+            require_alohamini_host(self.config["pi_host"])
             import cv2
             from lerobot.robots.alohamini import AlohaMiniClient, AlohaMiniClientConfig
 

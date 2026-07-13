@@ -11,7 +11,7 @@ usage_common() {
   cat <<'MSG'
 Common options:
   --repo PATH        Local lerobot_alohamini checkout
-  --pi USER@HOST     Raspberry Pi SSH target, for example pi5@192.168.0.24
+  --pi USER@HOST     Raspberry Pi SSH target, for example pi5@192.168.x.x
   --pi-repo PATH     Raspberry Pi repo path, default /home/<user>/lerobot_alohamini
   --conda-env NAME   Conda environment name, default lerobot_alohamini
 MSG
@@ -73,6 +73,18 @@ parse_pi_user() {
 parse_pi_host() {
   local pi="$1"
   echo "${pi#*@}"
+}
+
+validate_pi_target() {
+  local pi="$1"
+  local user host
+  [[ "$pi" == *@* ]] || return 1
+  user="$(parse_pi_user "$pi")"
+  host="$(parse_pi_host "$pi")"
+  [ -n "$user" ] && [ -n "$host" ] || return 1
+  [[ "$user" != *"@"* && "$host" != *"@"* ]] || return 1
+  [[ "$pi" != *[[:space:]/\<\>]* ]] || return 1
+  [[ "$host" != "192.168.x.x" && "$host" != "PI_IP" ]] || return 1
 }
 
 default_pi_repo() {

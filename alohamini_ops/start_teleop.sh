@@ -30,6 +30,9 @@ source "$CONDA_INIT_LOCAL"
 conda activate "$CONDA_ENV"
 cd "$LOCAL_REPO"
 
+PYTHONPATH="$OPS_DIR:$LOCAL_REPO/src:${PYTHONPATH:-}" \
+  python -m app.network "$PI_HOST"
+
 echo "Starting teleop. Keep this terminal focused for WASD/ZSXAD/UJ keys."
 echo "Full log: $LOCAL_TELEOP_LOG"
 

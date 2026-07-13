@@ -130,7 +130,7 @@ def build_context() -> AppContext:
     helper_bin = str(OPS_DIR / "bin")
     env["PATH"] = helper_bin + os.pathsep + env.get("PATH", "")
     env["ALOHAMINI_RUNTIME_PI_USER"] = env.get("PI_USER", "pi5")
-    env["ALOHAMINI_RUNTIME_PI_HOST"] = env.get("PI_HOST", "192.168.0.24")
+    env["ALOHAMINI_RUNTIME_PI_HOST"] = env.get("PI_HOST", "")
     for key, value in env.items():
         if key.startswith("ALOHAMINI_") or key in {"VOICE_DEVICE_INDEX"}:
             os.environ[key] = value
@@ -138,7 +138,7 @@ def build_context() -> AppContext:
         ops_dir=OPS_DIR,
         env=env,
         pi_user=env.get("PI_USER", "pi5"),
-        pi_host=env.get("PI_HOST", "192.168.0.24"),
+        pi_host=env.get("PI_HOST", ""),
         robot_model=env.get("ROBOT_MODEL", "alohamini2pro"),
         leader_id=env.get("LEADER_ID", "so101_leader_bi"),
         arm_profile=env.get("ARM_PROFILE", "am-leader-6dof"),

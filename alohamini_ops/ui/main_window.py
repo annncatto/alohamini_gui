@@ -231,8 +231,14 @@ class MainWindow(QMainWindow):
         if not pi_user:
             self.ui.log_panel.append("ERROR", "PI_USER 不能为空。")
             return None
-        if not pi_host or any(ch.isspace() for ch in pi_host):
-            self.ui.log_panel.append("ERROR", "PI_HOST 不能为空，且不能包含空格。")
+        invalid_host = (
+            not pi_host
+            or any(ch.isspace() for ch in pi_host)
+            or any(ch in pi_host for ch in "@/\\<>")
+            or pi_host in {"192.168.x.x", "PI_IP"}
+        )
+        if invalid_host:
+            self.ui.log_panel.append("ERROR", "PI_HOST 必须填写机器人的实际 IP 或主机名。")
             return None
         return pi_user, pi_host
 
