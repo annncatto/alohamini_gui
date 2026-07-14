@@ -5,6 +5,7 @@ from lerobot.utils.constants import HF_LEROBOT_HOME
 from lerobot.utils.feature_utils import hw_to_dataset_features
 from lerobot.processor import make_default_processors
 from lerobot.robots.alohamini import AlohaMiniClient, AlohaMiniClientConfig
+from lerobot.robots.alohamini.lift_axis import LiftAxisConfig
 from lerobot.scripts.lerobot_record import record_loop
 from lerobot.teleoperators.keyboard import KeyboardTeleop, KeyboardTeleopConfig
 from lerobot.teleoperators.bi_so_leader import BiSOLeader, BiSOLeaderConfig
@@ -12,7 +13,8 @@ from lerobot.teleoperators.so_leader import SOLeaderConfig
 from lerobot.utils.constants import ACTION, OBS_STR
 from lerobot.utils.keyboard_input import init_keyboard_listener
 from lerobot.utils.utils import log_say
-from lerobot.utils.visualization_utils import init_rerun
+from app.record_preview import AsyncPreviewFrameWriter
+from app.lift_control import lift_height_action, with_direct_lift_velocity
 
 from datetime import datetime
 import argparse
@@ -34,41 +36,32 @@ def parse_bool(value: str | bool) -> bool:
     raise argparse.ArgumentTypeError("Expected true or false.")
 
 
-class PreviewFrameWriter:
-    def __init__(self, preview_dir: str | None, fps: int = 8, quality: int = 70):
-        self.preview_dir = Path(preview_dir) if preview_dir else None
-        self.period_s = 1.0 / max(int(fps), 1)
-        self.quality = int(quality)
-        self._last_write_t = 0.0
-        self._cv2 = None
-        if self.preview_dir is not None:
-            self.preview_dir.mkdir(parents=True, exist_ok=True)
+class GuiRecordingAlohaMiniClient(AlohaMiniClient):
+    """Use GUI recording settings without changing the upstream CLI client."""
 
-    def __call__(self, observation: dict) -> None:
-        if self.preview_dir is None:
-            return
-        now = time.monotonic()
-        if now - self._last_write_t < self.period_s:
-            return
-        if self._cv2 is None:
-            import cv2
+    def __init__(self, config: AlohaMiniClientConfig, lift_step_mm: float, lift_velocity: int):
+        super().__init__(config)
+        self.lift_step_mm = max(float(lift_step_mm), 0.0)
+        self.lift_velocity = abs(int(lift_velocity))
 
-            self._cv2 = cv2
-        for name, value in observation.items():
-            if not hasattr(value, "shape") or len(value.shape) != 3:
-                continue
-            ok, buffer = self._cv2.imencode(
-                ".jpg",
-                value,
-                [int(self._cv2.IMWRITE_JPEG_QUALITY), self.quality],
-            )
-            if not ok:
-                continue
-            target = self.preview_dir / f"{name}.jpg"
-            tmp = self.preview_dir / f".{name}.jpg.tmp"
-            tmp.write_bytes(buffer.tobytes())
-            tmp.replace(target)
-        self._last_write_t = now
+    def _from_keyboard_to_lift_action(self, pressed_keys):
+        return lift_height_action(
+            pressed_keys=pressed_keys,
+            current_height_mm=self.last_remote_state.get("lift_axis.height_mm", 0.0),
+            step_mm=self.lift_step_mm,
+            soft_min_mm=LiftAxisConfig.soft_min_mm,
+            soft_max_mm=LiftAxisConfig.soft_max_mm,
+            up_key=self.teleop_keys.get("lift_up", "u"),
+            down_key=self.teleop_keys.get("lift_down", "j"),
+        )
+
+    def send_action(self, action):
+        wire_action = with_direct_lift_velocity(
+            action,
+            current_height_mm=self.last_remote_state.get("lift_axis.height_mm", 0.0),
+            velocity=self.lift_velocity,
+        )
+        return super().send_action(wire_action)
 
 
 class PhaseMarkerRecorder:
@@ -235,7 +228,11 @@ def main():
         help="Whether to upload the dataset to Hugging Face Hub after recording. Use '--push_to_hub false' to skip upload.",
     )
     parser.add_argument("--preview_dir", type=str, default=None, help="Optional directory for GUI preview JPEGs.")
-    parser.add_argument("--preview_fps", type=int, default=8, help="GUI preview frame rate.")
+    parser.add_argument("--preview_fps", type=int, default=5, help="GUI preview frame rate.")
+    parser.add_argument("--preview_quality", type=int, default=55, help="GUI preview JPEG quality.")
+    parser.add_argument("--preview_max_width", type=int, default=480, help="Maximum GUI preview width.")
+    parser.add_argument("--lift_step_mm", type=float, default=10.0, help="Lift target offset per control frame.")
+    parser.add_argument("--lift_velocity", type=int, default=1000, help="Lift velocity while a key is held.")
     parser.add_argument("--phase_marker_file", type=str, default=None, help="Optional GUI phase marker event jsonl.")
     parser.add_argument("--phase_marker_output", type=str, default=None, help="Optional sidecar phase marker output jsonl.")
 
@@ -260,12 +257,21 @@ def main():
     )
     keyboard_config = KeyboardTeleopConfig()
 
-    robot = AlohaMiniClient(robot_config)
+    robot = GuiRecordingAlohaMiniClient(
+        robot_config,
+        lift_step_mm=args.lift_step_mm,
+        lift_velocity=args.lift_velocity,
+    )
     leader_arm = BiSOLeader(leader_arm_config)
     keyboard = KeyboardTeleop(keyboard_config)
 
     teleop_action_processor, robot_action_processor, robot_observation_processor = make_default_processors()
-    preview_writer = PreviewFrameWriter(args.preview_dir, fps=args.preview_fps)
+    preview_writer = AsyncPreviewFrameWriter(
+        args.preview_dir,
+        fps=args.preview_fps,
+        quality=args.preview_quality,
+        max_width=args.preview_max_width,
+    )
     phase_markers = PhaseMarkerRecorder(
         event_file=args.phase_marker_file,
         output_file=args.phase_marker_output,
@@ -396,8 +402,6 @@ def main():
     if args.motion_file:
         motion_thread = threading.Thread(target=watch_motion_file, daemon=True)
         motion_thread.start()
-    init_rerun(session_name="alohamini_record")
-
     if not robot.is_connected or not leader_arm.is_connected or not keyboard.is_connected:
         raise ValueError("Robot or teleop is not connected!")
 
@@ -416,7 +420,7 @@ def main():
                 teleop=[leader_arm, keyboard],
                 control_time_s=0.5,
                 single_task=args.task_description,
-                display_data=True,
+                display_data=False,
                 teleop_action_processor=teleop_action_processor,
                 robot_action_processor=robot_action_processor,
                 robot_observation_processor=robot_observation_processor,
@@ -459,7 +463,7 @@ def main():
             teleop=[leader_arm, keyboard],
             control_time_s=args.episode_time,
             single_task=args.task_description,
-            display_data=True,
+            display_data=False,
             teleop_action_processor=teleop_action_processor,
             robot_action_processor=robot_action_processor,
             robot_observation_processor=robot_observation_processor,
@@ -489,7 +493,7 @@ def main():
                 teleop=[leader_arm, keyboard],
                 control_time_s=args.reset_time,
                 single_task=args.task_description,
-                display_data=True,
+                display_data=False,
                 teleop_action_processor=teleop_action_processor,
                 robot_action_processor=robot_action_processor,
                 robot_observation_processor=robot_observation_processor,
@@ -520,6 +524,7 @@ def main():
 
     # === Clean up ===
     log_say("Stop recording")
+    preview_writer.close()
     robot.disconnect()
     leader_arm.disconnect()
     keyboard.disconnect()

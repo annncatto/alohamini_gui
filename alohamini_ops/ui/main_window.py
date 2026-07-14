@@ -601,7 +601,11 @@ class MainWindow(QMainWindow):
         args.extend(["--control_file", str(self.record_control_file)])
         args.extend(["--motion_file", str(self.record_motion_file)])
         args.extend(["--preview_dir", str(self.record_preview_dir)])
-        args.extend(["--preview_fps", self.context.config.env.get("ALOHAMINI_RECORD_PREVIEW_FPS", "8")])
+        args.extend(["--preview_fps", self.context.config.env.get("ALOHAMINI_RECORD_PREVIEW_FPS", "5")])
+        args.extend(["--preview_quality", self.context.config.env.get("ALOHAMINI_RECORD_PREVIEW_QUALITY", "55")])
+        args.extend(["--preview_max_width", self.context.config.env.get("ALOHAMINI_RECORD_PREVIEW_MAX_WIDTH", "480")])
+        args.extend(["--lift_step_mm", self.context.config.env.get("ALOHAMINI_RECORD_LIFT_STEP_MM", "10")])
+        args.extend(["--lift_velocity", self.context.config.env.get("ALOHAMINI_RECORD_LIFT_VELOCITY", "1000")])
         if self.record_phase_marker_output is not None:
             args.extend(["--phase_marker_file", str(self.record_phase_marker_file)])
             args.extend(["--phase_marker_output", str(self.record_phase_marker_output)])
@@ -1109,7 +1113,15 @@ class MainWindow(QMainWindow):
     def start_record_preview(self) -> None:
         if self.record_preview_thread is not None:
             return
-        fps = int(self.context.config.env.get("ALOHAMINI_RECORD_PREVIEW_FPS", "8"))
+        fps_raw = self.context.config.env.get("ALOHAMINI_RECORD_PREVIEW_FPS", "5")
+        try:
+            fps = int(fps_raw)
+        except ValueError:
+            fps = 5
+            self.ui.log_panel.append("WARN", f"无效的采集预览帧率 {fps_raw!r}，使用 5 FPS。")
+        if fps <= 0:
+            self.ui.log_panel.append("INFO", "采集预览已关闭；数据集相机帧仍会正常保存。")
+            return
         self.record_preview_thread = QThread(self)
         self.record_preview_worker = RecordPreviewWorker(self.record_preview_dir, fps=fps)
         self.record_preview_worker.moveToThread(self.record_preview_thread)

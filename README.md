@@ -133,6 +133,8 @@ forward, backward, chest, wrist_left, wrist_right
 
 在“数据”页填写 `repo_id`、段数、FPS、时长、任务描述和保存目录，然后开始采集。默认只保存到本地；需要上传时再启用 Hugging Face 上传。
 
+采集帧率不足时，可先在 `alohamini_ops/config.env` 设置 `ALOHAMINI_RECORD_PREVIEW_FPS=0` 做对照测试。该设置只关闭 GUI 预览，不会关闭数据集中的相机画面。
+
 默认数据目录：
 
 ```text

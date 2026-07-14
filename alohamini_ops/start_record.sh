@@ -95,7 +95,8 @@ if failed:
     raise SystemExit("Leader servo preflight failed. Fix Leader power/cabling/servo IDs before recording.")
 PY
 
-printf '\n\n' | HF_LEROBOT_HOME="$DATASET_HOME" HF_LEROBOT_CALIBRATION="$CALIBRATION_HOME" \
+printf '\n\n' | PYTHONPATH="$OPS_DIR:$LOCAL_REPO/src:${PYTHONPATH:-}" \
+  HF_LEROBOT_HOME="$DATASET_HOME" HF_LEROBOT_CALIBRATION="$CALIBRATION_HOME" \
   ALOHAMINI_CAMERAS="${ALOHAMINI_CAMERAS:-forward,wrist_right}" \
   python -u "$GUI_RECORD_SCRIPT" \
   --remote_ip "$PI_HOST" \
